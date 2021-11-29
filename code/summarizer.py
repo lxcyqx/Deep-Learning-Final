@@ -284,7 +284,7 @@ num_layers = 4
 d_model = 128
 dff = 512
 num_heads = 8
-EPOCHS = 20
+EPOCHS = 10
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, d_model, warmup_steps=4000):
@@ -384,7 +384,7 @@ for epoch in range(EPOCHS):
         # 55k samples
         # we display 3 batch results -- 0th, middle and last one (approx)
         # 55k / 64 ~ 858; 858 / 2 = 429
-        if batch % 429 == 0:
+        if batch % 2 == 0:
             print ('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1, batch, train_loss.result()))
       
     if (epoch + 1) % 5 == 0:
