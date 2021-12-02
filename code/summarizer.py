@@ -4,26 +4,24 @@ import tensorflow as tf
 import time
 import re
 import pickle
-import csv
-
-info = []
 
 news = pd.read_excel("../data/news_summary.xlsx")
+news.drop(['Source ', 'Time ', 'Publish Date'], axis=1, inplace=True)
+
 document = news['Short']
 summary = news['Headline']
+summary = summary.apply(lambda x: '<go> ' + x + ' <stop>')
 
-
+# since < and > from default tokens cannot be removed
 filters = '!"#$%&()*+,-./:;=?@[\\]^_`{|}~\t\n'
-oov_token = '<unk>' # out of vocab token
+oov_token = '<unk>'
 
 document_tokenizer = tf.keras.preprocessing.text.Tokenizer(oov_token=oov_token)
 summary_tokenizer = tf.keras.preprocessing.text.Tokenizer(filters=filters, oov_token=oov_token)
 
-# update internal vocabulary based on list of texts, word->index dictionary
 document_tokenizer.fit_on_texts(document)
 summary_tokenizer.fit_on_texts(summary)
 
-# transform each text in texts to a sequence of integers, replaces each word with index from word index dictionary
 inputs = document_tokenizer.texts_to_sequences(document)
 targets = summary_tokenizer.texts_to_sequences(summary)
 
@@ -33,14 +31,14 @@ decoder_vocab_size = len(summary_tokenizer.word_index) + 1
 document_lengths = pd.Series([len(x) for x in document])
 summary_lengths = pd.Series([len(x) for x in summary])
 
+# maxlen
+# taking values > and round figured to 75th percentile
+# at the same time not leaving high variance
 encoder_maxlen = 400
 decoder_maxlen = 75
 
-# pad/truncate sequences to fixed length
 inputs = tf.keras.preprocessing.sequence.pad_sequences(inputs, maxlen=encoder_maxlen, padding='post', truncating='post')
 targets = tf.keras.preprocessing.sequence.pad_sequences(targets, maxlen=decoder_maxlen, padding='post', truncating='post')
-print(inputs.shape)
-print(targets.shape)
 
 inputs = tf.cast(inputs, dtype=tf.int32)
 targets = tf.cast(targets, dtype=tf.int32)
@@ -48,11 +46,8 @@ targets = tf.cast(targets, dtype=tf.int32)
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 
-# shuffle and batch data
 dataset = tf.data.Dataset.from_tensor_slices((inputs, targets)).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
 
-# PE(pos, 2i) = sin(pos/10000^{2i/d_model})
-# PE(pos, 2i+1) = cos(pos/10000^{2i/d_model})
 def get_angles(position, i, d_model):
     angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(d_model))
     return position * angle_rates
@@ -74,12 +69,10 @@ def positional_encoding(position, d_model):
 
     return tf.cast(pos_encoding, dtype=tf.float32)
 
-# Create padding mask for masking "pad" sequences
 def create_padding_mask(seq):
     seq = tf.cast(tf.math.equal(seq, 0), tf.float32)
     return seq[:, tf.newaxis, tf.newaxis, :]
 
-# Create lookahead mask for masking future words from contributing to prediciton of current words
 def create_look_ahead_mask(size):
     mask = 1 - tf.linalg.band_part(tf.ones((size, size)), -1, 0)
     return mask
@@ -152,8 +145,8 @@ class EncoderLayer(tf.keras.layers.Layer):
         self.mha = MultiHeadAttention(d_model, num_heads)
         self.ffn = point_wise_feed_forward_network(d_model, dff)
 
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-8)
+        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-8)
 
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
@@ -178,9 +171,9 @@ class DecoderLayer(tf.keras.layers.Layer):
 
         self.ffn = point_wise_feed_forward_network(d_model, dff)
 
-        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-7)
+        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-7)
+        self.layernorm3 = tf.keras.layers.LayerNormalization(epsilon=1e-7)
 
         self.dropout1 = tf.keras.layers.Dropout(rate)
         self.dropout2 = tf.keras.layers.Dropout(rate)
@@ -280,11 +273,12 @@ class Transformer(tf.keras.Model):
 
         return final_output, attention_weights
 
+# hyper-params
 num_layers = 4
 d_model = 128
 dff = 512
 num_heads = 8
-EPOCHS = 10
+EPOCHS = 20
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, d_model, warmup_steps=4000):
@@ -303,7 +297,7 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 learning_rate = CustomSchedule(d_model)
 
-optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.99, epsilon=1e-9)
 
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
 
@@ -329,7 +323,6 @@ transformer = Transformer(
     pe_target=decoder_vocab_size,
 )
 
-# Masks
 def create_masks(inp, tar):
     enc_padding_mask = create_padding_mask(inp)
     dec_padding_mask = create_padding_mask(inp)
@@ -340,8 +333,7 @@ def create_masks(inp, tar):
   
     return enc_padding_mask, combined_mask, dec_padding_mask
 
-# Checkpoints
-checkpoint_path = "checkpoints"
+checkpoint_path = "../checkpoints"
 
 ckpt = tf.train.Checkpoint(transformer=transformer, optimizer=optimizer)
 
@@ -373,27 +365,28 @@ def train_step(inp, tar):
 
     train_loss(loss)
 
-for epoch in range(EPOCHS):
-    start = time.time()
+def train():
+    for epoch in range(EPOCHS):
+        start = time.time()
 
-    train_loss.reset_states()
-  
-    for (batch, (inp, tar)) in enumerate(dataset):
-        train_step(inp, tar)
+        train_loss.reset_states()
     
-        # 55k samples
-        # we display 3 batch results -- 0th, middle and last one (approx)
-        # 55k / 64 ~ 858; 858 / 2 = 429
-        if batch % 2 == 0:
-            print ('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1, batch, train_loss.result()))
-      
-    if (epoch + 1) % 5 == 0:
-        ckpt_save_path = ckpt_manager.save()
-        print ('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
-    
-    print ('Epoch {} Loss {:.4f}'.format(epoch + 1, train_loss.result()))
+        for (batch, (inp, tar)) in enumerate(dataset):
+            train_step(inp, tar)
+        
+            # 55k samples
+            # we display 3 batch results -- 0th, middle and last one (approx)
+            # 55k / 64 ~ 858; 858 / 2 = 429
+            if batch % 429 == 0:
+                print ('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1, batch, train_loss.result()))
+        
+        if (epoch + 1) % 2 == 0:
+            ckpt_save_path = ckpt_manager.save()
+            print ('Saving checkpoint for epoch {} at {}'.format(epoch+1, ckpt_save_path))
+        
+        print ('Epoch {} Loss {:.4f}'.format(epoch + 1, train_loss.result()))
 
-    print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+        print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
 def evaluate(input_document):
     input_document = document_tokenizer.texts_to_sequences([input_document])
@@ -432,11 +425,17 @@ def summarize(input_document):
     summarized = np.expand_dims(summarized[1:], 0)  # not printing <go> token
     return summary_tokenizer.sequences_to_texts(summarized)[0]  # since there is just one translated document
 
-summarize(
+ckpt.restore('../checkpoints/ckpt-10.index')
+
+print(summarize(
     "US-based private equity firm General Atlantic is in talks to invest about \
     $850 million to $950 million in Reliance Industries' digital unit Jio \
     Platforms, the Bloomberg reported. Saudi Arabia's $320 billion sovereign \
     wealth fund is reportedly also exploring a potential investment in the \
     Mukesh Ambani-led company. The 'Public Investment Fund' is looking to \
     acquire a minority stake in Jio Platforms."
-)
+))
+
+print(summarize(
+    "hello hello hello hello"
+))
