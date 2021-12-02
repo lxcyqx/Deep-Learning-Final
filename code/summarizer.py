@@ -12,7 +12,6 @@ document = news['Short']
 summary = news['Headline']
 summary = summary.apply(lambda x: '<go> ' + x + ' <stop>')
 
-# since < and > from default tokens cannot be removed
 filters = '!"#$%&()*+,-./:;=?@[\\]^_`{|}~\t\n'
 oov_token = '<unk>'
 
@@ -31,9 +30,6 @@ decoder_vocab_size = len(summary_tokenizer.word_index) + 1
 document_lengths = pd.Series([len(x) for x in document])
 summary_lengths = pd.Series([len(x) for x in summary])
 
-# maxlen
-# taking values > and round figured to 75th percentile
-# at the same time not leaving high variance
 encoder_maxlen = 400
 decoder_maxlen = 75
 
@@ -374,9 +370,6 @@ def train():
         for (batch, (inp, tar)) in enumerate(dataset):
             train_step(inp, tar)
         
-            # 55k samples
-            # we display 3 batch results -- 0th, middle and last one (approx)
-            # 55k / 64 ~ 858; 858 / 2 = 429
             if batch % 429 == 0:
                 print ('Epoch {} Batch {} Loss {:.4f}'.format(epoch + 1, batch, train_loss.result()))
         
@@ -420,22 +413,32 @@ def evaluate(input_document):
     return tf.squeeze(output, axis=0), attention_weights
 
 def summarize(input_document):
-    # not considering attention weights for now, can be used to plot attention heatmaps in the future
     summarized = evaluate(input_document=input_document)[0].numpy()
     summarized = np.expand_dims(summarized[1:], 0)  # not printing <go> token
     return summary_tokenizer.sequences_to_texts(summarized)[0]  # since there is just one translated document
 
 ckpt.restore('../checkpoints/ckpt-10.index')
 
-print(summarize(
-    "US-based private equity firm General Atlantic is in talks to invest about \
-    $850 million to $950 million in Reliance Industries' digital unit Jio \
-    Platforms, the Bloomberg reported. Saudi Arabia's $320 billion sovereign \
-    wealth fund is reportedly also exploring a potential investment in the \
-    Mukesh Ambani-led company. The 'Public Investment Fund' is looking to \
-    acquire a minority stake in Jio Platforms."
+print("Hello by Adele summary: ", summarize(
+    "Hello, it's me I was wondering if after all these years you'd like to meet To go over everything \
+    They say that time's supposed to heal yanBut I ain't done much healing Hello, can you hear me? I'm \
+    in California dreaming about who we used to be When we were younger and free \
+    I\'ve forgotten how it felt before the world fell at our feet There\'s such a difference between us"
 ))
 
-print(summarize(
-    "hello hello hello hello"
+print("Baby by Justin Bieber summary: ", summarize(
+    "Oh whoa Oh whoa Oh whoa You know you love me, I know you care Just shout whenever and I'll be there \
+    You are my love, you are my heart And we will never, ever, ever be apart Are we an item? Girl, quit playing \
+    We're just friends, what are you saying? Said, \"There's another\" and look right in my eyes \
+    My first love broke my heart for the first time and I was like Baby, baby, baby, oh Like baby, baby, baby, no \
+    Like baby, baby, baby, oh Thought you'd always be mine, mine"
 ))
+
+print("Hey There Delilah by Plain White T's summary: ", summarize("Hey there, Delilah  What's it like in New York city? \
+    I'm a thousand miles away But, girl, tonight you look so pretty Yes, you do Time square can't shine as bright as you \
+    I swear, it's true Hey there, Delilah Don't you worry about the distance I'm right there if you get lonely \
+    Give this song another listen Close your eyes Listen to my voice, it's my disguise I'm by your side \
+    Oh, it's what you do to me Oh, it's what you do to me Oh, it's what you do to me Oh, it's what you do to me \
+    What you do to me Hey there, Delilah I know times are gettin' hard But just believe me, girl \
+    Someday I'll pay the bills with this guitar We'll have it good We'll have the life we knew we would \
+    My word is good"))
