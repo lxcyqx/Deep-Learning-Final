@@ -4,6 +4,8 @@ import tensorflow as tf
 import time
 import re
 import pickle
+import sys
+import csv
 
 news = pd.read_excel("../data/news_summary.xlsx")
 news.drop(['Source ', 'Time ', 'Publish Date'], axis=1, inplace=True)
@@ -419,26 +421,28 @@ def summarize(input_document):
 
 ckpt.restore('../checkpoints/ckpt-10.index')
 
-print("Hello by Adele summary: ", summarize(
-    "Hello, it's me I was wondering if after all these years you'd like to meet To go over everything \
-    They say that time's supposed to heal yanBut I ain't done much healing Hello, can you hear me? I'm \
-    in California dreaming about who we used to be When we were younger and free \
-    I\'ve forgotten how it felt before the world fell at our feet There\'s such a difference between us"
-))
+def getLyrics(title):
+    with open("../preprocessing/songsToMeaningAndLyrics.csv", 'r') as csvfile:
+        reader = csv.reader(csvfile, delimiter=',')
+        next(reader)
+        for row in reader:
+            song_name = row[2]
+            if song_name == title:
+                print("found----")
+                return row[3]
+        return ""
 
-print("Baby by Justin Bieber summary: ", summarize(
-    "Oh whoa Oh whoa Oh whoa You know you love me, I know you care Just shout whenever and I'll be there \
-    You are my love, you are my heart And we will never, ever, ever be apart Are we an item? Girl, quit playing \
-    We're just friends, what are you saying? Said, \"There's another\" and look right in my eyes \
-    My first love broke my heart for the first time and I was like Baby, baby, baby, oh Like baby, baby, baby, no \
-    Like baby, baby, baby, oh Thought you'd always be mine, mine"
-))
+def main():
+    if len(sys.argv) != 2:
+        print("USAGE: python3 summarizer.py \"<song name>\"")
+        exit()
+    
+    song_name = sys.argv[1]
+    lyrics = getLyrics(song_name)
+    if (lyrics == ""):
+        print("ERROR: could not find song")
+    else:
+        print(song_name, "summary: ", summarize(lyrics))
 
-print("Hey There Delilah by Plain White T's summary: ", summarize("Hey there, Delilah  What's it like in New York city? \
-    I'm a thousand miles away But, girl, tonight you look so pretty Yes, you do Time square can't shine as bright as you \
-    I swear, it's true Hey there, Delilah Don't you worry about the distance I'm right there if you get lonely \
-    Give this song another listen Close your eyes Listen to my voice, it's my disguise I'm by your side \
-    Oh, it's what you do to me Oh, it's what you do to me Oh, it's what you do to me Oh, it's what you do to me \
-    What you do to me Hey there, Delilah I know times are gettin' hard But just believe me, girl \
-    Someday I'll pay the bills with this guitar We'll have it good We'll have the life we knew we would \
-    My word is good"))
+if __name__ == '__main__':
+    main()
