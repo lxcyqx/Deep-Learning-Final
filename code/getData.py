@@ -134,7 +134,9 @@ def getData():
     # numpy array of n songs where each song contains artist name, song name, lyrics and the meaning of the song 
     
     dataNp = mergeCsvFiles[['ARTIST_NAME', 'SONG_NAME', 'LYRICS', 'meaning']].to_numpy()
-    length = len(dataNp)
+    
+    
+    ength = len(dataNp)
     shuffle_idx = np.arange(length)
     np.random.shuffle(shuffle_idx)
     shuffled_inputs = dataNp[shuffle_idx]
