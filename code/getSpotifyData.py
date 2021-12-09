@@ -47,9 +47,8 @@ def scrape_lyrics_song(artist, song):
     initialStr = "https://genius.com/"
     # consider removing punctation from artist name and song name 
     replaceArtist = artist.replace(" ","-")
-    replaceName = name.replace(" ", "-")
+    replaceName = song.replace(" ", "-")
     newStr = initialStr + replaceArtist + "-" + replaceName + "-lyrics"
-    
     return scrape_song_lyrics(newStr)
     
 
