@@ -10,6 +10,8 @@ from bs4 import BeautifulSoup
 import os
 # Search and manipulate strings
 import re
+import numpy as np
+import math
 
 
 #GENIUS API STUFF
