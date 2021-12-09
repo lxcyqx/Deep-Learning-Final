@@ -6,11 +6,6 @@ import nltk
 import numpy as np
 import sys
 
-try:
-	nltk.data.find('corpora/stopwords')
-except LookupError:
-	nltk.download('stopwords')
-
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from nltk.tokenize import RegexpTokenizer
@@ -101,7 +96,7 @@ def main():
         if song_name in name_to_id:
             song_ids = [name_to_id[song_name]]
     else:
-        song_ids = np.random.choice(np.arange(2102), size=100)
+        song_ids = np.random.choice(np.arange(2102), size=10)
     tf_idf_matrix = tf_idf(songs, song_word_counts, word_ids)
     count = 0
     control = ["breakup", "love"]
