@@ -63,22 +63,49 @@ label_tokenizer.fit_on_texts(labels)
 training_label_seq = np.array(label_tokenizer.texts_to_sequences(train_labels))
 validation_label_seq = np.array(label_tokenizer.texts_to_sequences(validation_labels))
 
-EMBEDDING_DIMENSION = 64
+def lstm():
+    EMBEDDING_DIMENSION = 32
+    model = Sequential()
+    model.add(Embedding(len(word_index) + 1, EMBEDDING_DIMENSION))
+    model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+    model.add(Dense(6, activation='sigmoid'))
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
 
-model = Sequential()
-model.add(Embedding(len(word_index) + 1, EMBEDDING_DIMENSION))
-model.add(SpatialDropout1D(0.3))
-model.add(Bidirectional(LSTM(EMBEDDING_DIMENSION, dropout=0.3, recurrent_dropout=0.3)))
-model.add(Dense(EMBEDDING_DIMENSION, activation='relu'))
-model.add(Dropout(0.8))
-model.add(Dense(EMBEDDING_DIMENSION, activation='relu'))
-model.add(Dropout(0.8))
-model.add(Dense(6, activation='softmax'))
-model.compile(loss='sparse_categorical_crossentropy', optimizer='adam',metrics=['accuracy'])
-model.summary()
+def cnn_lstm():
+    EMBEDDING_DIMENSION = 32
+    model = Sequential()
+    model.add(Embedding(len(word_index) + 1, EMBEDDING_DIMENSION))
+    model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
+    model.add(MaxPooling1D(pool_size=2))
+    model.add(LSTM(100))
+    model.add(Dense(6, activation='sigmoid'))
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
 
-num_epochs = 30
+def bidirectional_lstm():
+    EMBEDDING_DIMENSION = 64
+
+    model = Sequential()
+    model.add(Embedding(len(word_index) + 1, EMBEDDING_DIMENSION))
+    model.add(SpatialDropout1D(0.3))
+    model.add(Bidirectional(LSTM(EMBEDDING_DIMENSION, dropout=0.3, recurrent_dropout=0.3)))
+    model.add(Dense(EMBEDDING_DIMENSION, activation='relu'))
+    model.add(Dropout(0.8))
+    model.add(Dense(EMBEDDING_DIMENSION, activation='relu'))
+    model.add(Dropout(0.8))
+    model.add(Dense(6, activation='softmax'))
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='adam',metrics=['accuracy'])
+    return model
+
+model = lstm()
+model2 = cnn_lstm()
+model3 = bidirectional_lstm()
+
+num_epochs = 20
 history = model.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
+history2 = model2.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
+history3 = model3.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
 
 def plot_graphs(history, string):
   plt.plot(history.history[string])
@@ -88,8 +115,14 @@ def plot_graphs(history, string):
   plt.legend([string, 'val_'+string])
   plt.show()
   
-plot_graphs(history, "accuracy")
-plot_graphs(history, "loss")
+plot_graphs(history, "LSTM accuracy")
+plot_graphs(history, "LSTM loss")
+
+plot_graphs(history2, "CNN + LSTM accuracy")
+plot_graphs(history2, "CNN + LSTM loss")
+
+plot_graphs(history3, "Bidirectional LSTM accuracy")
+plot_graphs(history3, "Bidirectional LSTM loss")
 
 def getLyrics(title):
     with open("../preprocessing/songsToMeaningAndLyrics.csv", 'r') as csvfile:
@@ -106,7 +139,11 @@ def predict(song_name):
     seq = tokenizer.texts_to_sequences(txt)
     padded = pad_sequences(seq, maxlen=max_length)
     pred = model.predict(padded)
+    pred2 = model2.predict(padded)
+    pred3 = model3.predict(padded)
     print(song_name, pred, labels[np.argmax(pred)])
+    print(song_name, pred2, labels[np.argmax(pred2)])
+    print(song_name, pred3, labels[np.argmax(pred3)])
 
 def main():
     if len(sys.argv) != 2:
