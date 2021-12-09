@@ -38,7 +38,6 @@ lyricss = []
 labels = []
 
 with open("../data/songsToMeaningAndLyricsFull.csv", 'r') as csvfile:
-    print("in open file")
     reader = csv.reader(csvfile, delimiter=',')
     next(reader)
     for row in reader:
@@ -74,9 +73,6 @@ label_tokenizer.fit_on_texts(labels)
 
 training_label_seq = np.array(label_tokenizer.texts_to_sequences(train_labels)) - 1
 validation_label_seq = np.array(label_tokenizer.texts_to_sequences(validation_labels)) - 1
-
-print(train_labels[:10])
-print(training_label_seq[:10])
 
 def lstm():
     EMBEDDING_DIMENSION = 32
@@ -224,7 +220,6 @@ def predict(lyrics, song_name, artist_name):
 
 def main():
     if len(sys.argv) != 3:
-        print("hello")
         print("USAGE: python3 lstm.py \"<song name>\" \"artist name\"")
         exit()
     
@@ -234,7 +229,6 @@ def main():
     if (lyrics == None):
         print("ERROR: could not find song")
     else:
-        print(lyrics)
         predict(lyrics, song_name, artist_name)
 
 if __name__ == '__main__':
