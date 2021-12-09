@@ -213,10 +213,10 @@ def predict(lyrics, song_name, artist_name):
     pred3 = model3.predict(padded)
     pred4 = model4.predict(padded)
     meaning = ["love", "breakup", "party", "sex", "religion"]
-    print(song_name, " by ", artist_name, " - meaning: ", meaning[np.argmax(pred)])
-    print(song_name, " by ", artist_name, " - meaning: ", meaning[np.argmax(pred2)])
-    print(song_name, " by ", artist_name, " - meaning: ", meaning[np.argmax(pred3)])
-    print(song_name, " by ", artist_name, " - meaning: ", meaning[np.argmax(pred3)])
+    print(song_name, " by ", artist_name, " - lstm meaning: ", meaning[np.argmax(pred)])
+    print(song_name, " by ", artist_name, " - cnn lstm meaning: ", meaning[np.argmax(pred2)])
+    print(song_name, " by ", artist_name, " - bidirectional lstm meaning: ", meaning[np.argmax(pred3)])
+    print(song_name, " by ", artist_name, " - cnn bidirectional lstm meaning: ", meaning[np.argmax(pred3)])
 
 def main():
     if len(sys.argv) != 3:
