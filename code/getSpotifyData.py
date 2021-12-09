@@ -50,7 +50,7 @@ def scrape_lyrics_song(artist, song):
     replaceName = name.replace(" ", "-")
     newStr = initialStr + replaceArtist + "-" + replaceName + "-lyrics"
     
-    return scrape_song_lyrics(newStr)
+    return scrape_lyrics_song(newStr)
     
 
 cid = '4a76a5f9d5394199a0830ba20134f062'
