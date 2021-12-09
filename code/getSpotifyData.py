@@ -40,6 +40,15 @@ def scrape_song_lyrics(url):
         res_list = [s for s in re.split("([A-Z][^A-Z]*)", word) if s]
         allWords += res_list
     return " ".join(allWords)
+
+def scrape_lyrics_song(artist, song):
+    initialStr = "https://genius.com/"
+    # consider removing punctation from artist name and song name 
+    replaceArtist = artist.replace(" ","-")
+    replaceName = name.replace(" ", "-")
+    newStr = initialStr + replaceArtist + "-" + replaceName + "-lyrics"
+    
+    return scrape_song_lyrics(newStr)
     
 
 cid = '4a76a5f9d5394199a0830ba20134f062'
@@ -48,8 +57,6 @@ client_credentials_manager = SpotifyClientCredentials(client_id=cid, client_secr
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 songUniqueIds = {}
-
-
 
 def getTrackIds(playlistTracks):
     ids = []
