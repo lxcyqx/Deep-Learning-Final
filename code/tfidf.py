@@ -4,6 +4,7 @@ from collections import Counter
 import pandas as pd
 import nltk
 import numpy as np
+import sys
 
 try:
 	nltk.data.find('corpora/stopwords')
@@ -95,9 +96,13 @@ def main():
     dataNp.drop(rows, inplace=True)
     dataNp = np.array(dataNp)
     songs, song_word_counts, word_ids, labels, id_to_name, name_to_id = preprocess_lyrics(dataNp)
-
+    if len(sys.argv) == 2:
+        song_name = sys.argv[1]
+        if song_name in name_to_id:
+            song_ids = [name_to_id[song_name]]
+    else:
+        song_ids = np.random.choice(np.arange(2102), size=100)
     tf_idf_matrix = tf_idf(songs, song_word_counts, word_ids)
-    song_ids = np.random.choice(np.arange(2102), size=100)
     count = 0
     control = ["breakup", "love"]
     control_count = 0
