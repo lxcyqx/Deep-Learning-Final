@@ -194,16 +194,7 @@ def scrape_lyrics_song(artist, song):
     replaceName = song.replace(" ", "-")
     newStr = initialStr + replaceArtist + "-" + replaceName + "-lyrics"
     return scrape_song_lyrics(newStr)
-
-def getLyrics(title):
-    with open("../data/songsToMeaningAndLyricsFull.csv", 'r') as csvfile:
-        reader = csv.reader(csvfile, delimiter=',')
-        next(reader)
-        for row in reader:
-            song_name = row[2]
-            if song_name == title:
-                return row[3]
-
+    
 def predict(lyrics, song_name, artist_name):
     txt = [lyrics]
     seq = tokenizer.texts_to_sequences(txt)
