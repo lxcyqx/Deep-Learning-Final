@@ -6,6 +6,12 @@ import re
 import pickle
 import sys
 import csv
+import requests
+# Scrape data from an HTML document
+from bs4 import BeautifulSoup
+# I/O
+import os
+import re
 
 news = pd.read_excel("../data/news_summary.xlsx")
 news.drop(['Source ', 'Time ', 'Publish Date'], axis=1, inplace=True)
@@ -421,6 +427,40 @@ def summarize(input_document):
 
 ckpt.restore('../checkpoints/ckpt-10.index')
 
+def scrape_song_lyrics(url):
+
+    try:
+        page = requests.get(url)
+    except requests.exceptions.RequestException as e:  # This is the correct syntax
+
+        return None 
+    html = BeautifulSoup(page.text, 'html.parser')
+    classToDig = html.find("div",class_="Lyrics__Container-sc-1ynbvzw-6 lgZgEN")
+    if classToDig is None:
+        return None
+    else:
+        lyrics = classToDig.get_text()
+    #print(url + ' survived!')
+    #remove identifiers like chorus, verse, etc
+    lyrics = re.sub(r'[\(\[].*?[\)\]]', '', lyrics)
+    #remove empty lines
+    lyrics = os.linesep.join([s for s in lyrics.splitlines() if s])
+    lyrics = re.sub(r'[^\w]', ' ', lyrics) 
+    words = lyrics.split(" ")
+    allWords = []
+    for word in words:
+        res_list = [s for s in re.split("([A-Z][^A-Z]*)", word) if s]
+        allWords += res_list
+    return " ".join(allWords)
+
+def scrape_lyrics_song(artist, song):
+    initialStr = "https://genius.com/"
+    # consider removing punctation from artist name and song name 
+    replaceArtist = artist.replace(" ","-")
+    replaceName = song.replace(" ", "-")
+    newStr = initialStr + replaceArtist + "-" + replaceName + "-lyrics"
+    return scrape_song_lyrics(newStr)
+
 def getLyrics(title):
     with open("../preprocessing/songsToMeaningAndLyrics.csv", 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
@@ -433,12 +473,13 @@ def getLyrics(title):
         return ""
 
 def main():
-    if len(sys.argv) != 2:
-        print("USAGE: python3 summarizer.py \"<song name>\"")
+    if len(sys.argv) != 3:
+        print("USAGE: python3 summarizer.py \"<song name>\" \"<artist name>\"")
         exit()
     
     song_name = sys.argv[1]
-    lyrics = getLyrics(song_name)
+    artist_name = sys.argv[2]
+    lyrics = scrape_lyrics_song(artist_name, song_name)
     if (lyrics == ""):
         print("ERROR: could not find song")
     else:
