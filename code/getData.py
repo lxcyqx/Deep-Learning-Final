@@ -136,7 +136,7 @@ def getData():
     dataNp = mergeCsvFiles[['ARTIST_NAME', 'SONG_NAME', 'LYRICS', 'meaning']].to_numpy()
     
     
-    ength = len(dataNp)
+    length = len(dataNp)
     shuffle_idx = np.arange(length)
     np.random.shuffle(shuffle_idx)
     shuffled_inputs = dataNp[shuffle_idx]
