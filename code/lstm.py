@@ -14,6 +14,11 @@ import nltk
 nltk.download('stopwords')
 from nltk.corpus import stopwords
 STOPWORDS = set(stopwords.words('english'))
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
+
+#GENIUS API STUFF
+GENIUS_API_TOKEN='YcO4NV1shV8O0pA4kw9eCJflks0JpecSoMpU2v8sc2fitjDfKfHpGOClBJSAzstM'
 
 vocab_size = 5000
 embedding_dim = 64
@@ -26,11 +31,12 @@ training_portion = .8
 lyricss = []
 labels = []
 
-with open("../preprocessing/songsToMeaningAndLyrics.csv", 'r') as csvfile:
+with open("../data/songsToMeaningAndLyricsFull.csv", 'r') as csvfile:
+    print("in open file")
     reader = csv.reader(csvfile, delimiter=',')
     next(reader)
     for row in reader:
-        labels.append(row[7])
+        labels.append(row[4])
         lyrics = row[3]
         for word in STOPWORDS:
             token = ' ' + word + ' '
@@ -60,15 +66,18 @@ validation_padded = pad_sequences(validation_sequences, maxlen=max_length, paddi
 label_tokenizer = Tokenizer()
 label_tokenizer.fit_on_texts(labels)
 
-training_label_seq = np.array(label_tokenizer.texts_to_sequences(train_labels))
-validation_label_seq = np.array(label_tokenizer.texts_to_sequences(validation_labels))
+training_label_seq = np.array(label_tokenizer.texts_to_sequences(train_labels)) - 1
+validation_label_seq = np.array(label_tokenizer.texts_to_sequences(validation_labels)) - 1
+
+print(train_labels[:10])
+print(training_label_seq[:10])
 
 def lstm():
     EMBEDDING_DIMENSION = 32
     model = Sequential()
     model.add(Embedding(len(word_index) + 1, EMBEDDING_DIMENSION))
     model.add(LSTM(100, dropout=0.2, recurrent_dropout=0.2))
-    model.add(Dense(6, activation='sigmoid'))
+    model.add(Dense(5, activation='sigmoid'))
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     return model
 
@@ -79,7 +88,7 @@ def cnn_lstm():
     model.add(Conv1D(filters=32, kernel_size=3, padding='same', activation='relu'))
     model.add(MaxPooling1D(pool_size=2))
     model.add(LSTM(100))
-    model.add(Dense(6, activation='sigmoid'))
+    model.add(Dense(5, activation='sigmoid'))
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
     return model
 
@@ -94,18 +103,36 @@ def bidirectional_lstm():
     model.add(Dropout(0.8))
     model.add(Dense(EMBEDDING_DIMENSION, activation='relu'))
     model.add(Dropout(0.8))
-    model.add(Dense(6, activation='softmax'))
+    model.add(Dense(5, activation='softmax'))
     model.compile(loss='sparse_categorical_crossentropy', optimizer='adam',metrics=['accuracy'])
     return model
 
-model = lstm()
+def cnn_bidirectional_lstm():
+    model = Sequential()
+    model.add(Conv1D(filters=16, kernel_size=3, activation='relu'))
+    model.add(MaxPooling1D(pool_size=2,strides=2))
+    model.add(Conv1D(filters=24, kernel_size=3, activation='relu'))
+    model.add(MaxPooling1D(pool_size=2,strides=2))
+    model.add(Conv1D(filters=32, kernel_size=3, activation='relu'))
+    model.add(MaxPooling1D(pool_size=2,strides=2))
+    model.add(Bidirectional(LSTM(100, activation='relu', return_sequences=False)))
+    model.add(Dense(5,activation='softmax'))
+
+model1 = lstm()
 model2 = cnn_lstm()
 model3 = bidirectional_lstm()
+model4 = cnn_bidirectional_lstm()
 
 num_epochs = 20
-history = model.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
+history = model1.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
 history2 = model2.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
 history3 = model3.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
+history4 = model4.fit(train_padded, training_label_seq, epochs=num_epochs, validation_data=(validation_padded, validation_label_seq), verbose=2)
+
+model1.save("../checkpoints/lstm")
+model2.save("../checkpoints/cnn_lstm")
+model3.save("../checkpoints/bidirectional_lstm")
+model4.save("../checkpoints/cnn_bidirectional_lstm")
 
 def plot_graphs(history, string):
   plt.plot(history.history[string])
@@ -124,8 +151,19 @@ plot_graphs(history2, "CNN + LSTM loss")
 plot_graphs(history3, "Bidirectional LSTM accuracy")
 plot_graphs(history3, "Bidirectional LSTM loss")
 
+plot_graphs(history4, "CNN Bidirectional LSTM accuracy")
+plot_graphs(history4, "CNN Bidirectional LSTM loss")
+
+def scrape_lyrics_song(artist, song):
+    initialStr = "https://genius.com/"
+    # consider removing punctation from artist name and song name 
+    replaceArtist = artist.replace(" ","-")
+    replaceName = song.replace(" ", "-")
+    newStr = initialStr + replaceArtist + "-" + replaceName + "-lyrics"
+    return scrape_song_lyrics(newStr)
+
 def getLyrics(title):
-    with open("../preprocessing/songsToMeaningAndLyrics.csv", 'r') as csvfile:
+    with open("../data/songsToMeaningAndLyricsFull.csv", 'r') as csvfile:
         reader = csv.reader(csvfile, delimiter=',')
         next(reader)
         for row in reader:
@@ -133,25 +171,31 @@ def getLyrics(title):
             if song_name == title:
                 return row[3]
 
-def predict(song_name):
-    lyrics = getLyrics(song_name)
+def predict(lyrics, song_name):
     txt = [lyrics]
     seq = tokenizer.texts_to_sequences(txt)
     padded = pad_sequences(seq, maxlen=max_length)
     pred = model.predict(padded)
     pred2 = model2.predict(padded)
     pred3 = model3.predict(padded)
-    print(song_name, pred, labels[np.argmax(pred)])
-    print(song_name, pred2, labels[np.argmax(pred2)])
-    print(song_name, pred3, labels[np.argmax(pred3)])
+    pred4 = model4.predict(padded)
+    meaning = ["love", "breakup", "party", "sex", "religion"]
+    print(song_name, pred, meaning[np.argmax(pred)])
+    print(song_name, pred2, meaning[np.argmax(pred2)])
+    print(song_name, pred3, meaning[np.argmax(pred3)])
+    print(song_name, pred4, meaning[np.argmax(pred3)])
 
 def main():
-    if len(sys.argv) != 2:
-        print("USAGE: python3 lstm.py \"<song name>\"")
+    if len(sys.argv) != 3:
+        print("hello")
+        print("USAGE: python3 lstm.py \"<song name>\" \"artist name\"")
         exit()
     
     song_name = sys.argv[1].lower()
-    predict(song_name)
+    artist_name = sys.argv[2].lower()
+    lyrics = scrape_lyrics_song(artist_name, song_name)
+    print(lyrics)
+    predict(lyrics)
 
 if __name__ == '__main__':
     main()
